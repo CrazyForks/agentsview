@@ -17,13 +17,7 @@ type MessageDictionary = {
 };
 
 export function normalizeLocale(value: string | null | undefined): SupportedLocale {
-  const normalized = value?.trim().toLowerCase();
-  if (!normalized) return DEFAULT_LOCALE;
-  if (normalized === "en" || normalized.startsWith("en-")) return "en";
-  if (normalized === "zh-cn" || normalized.startsWith("zh-hans")) {
-    return "zh-CN";
-  }
-  return DEFAULT_LOCALE;
+  return matchingLocale(value) ?? DEFAULT_LOCALE;
 }
 
 function matchingLocale(value: string | null | undefined): SupportedLocale | null {

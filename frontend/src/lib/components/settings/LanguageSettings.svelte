@@ -1,7 +1,6 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
   import {
-    LOCALE_STORAGE_KEY,
     SUPPORTED_LOCALES,
     chooseInitialLocale,
     setLocale,
@@ -10,14 +9,7 @@
   import SettingsSection from "./SettingsSection.svelte";
 
   function currentLocale(): SupportedLocale {
-    try {
-      const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
-      return SUPPORTED_LOCALES.includes(raw as SupportedLocale)
-        ? raw as SupportedLocale
-        : chooseInitialLocale();
-    } catch {
-      return chooseInitialLocale();
-    }
+    return chooseInitialLocale();
   }
 
   let selectedLocale = $state<SupportedLocale>(currentLocale());
