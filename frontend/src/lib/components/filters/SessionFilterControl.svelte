@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { _ } from "svelte-i18n";
   import { sessions } from "../../stores/sessions.svelte.js";
   import { router } from "../../stores/router.svelte.js";
   import { hasSessionRouteDateIntent } from "../../stores/sessionRouteParams.js";
@@ -138,8 +139,8 @@
   class="filter-btn"
   bind:this={filterBtnRef}
   onclick={() => (open = !open)}
-  title="Filter sessions"
-  aria-label="Filters"
+  title={$_("sidebar.filters.filterSessions")}
+  aria-label={$_("sidebar.filters.filters")}
   aria-expanded={open}
 >
   <FunnelIcon size="14" strokeWidth="2" aria-hidden="true" />
@@ -156,7 +157,7 @@
   >
     {#if showDisplay}
       <div class="filter-section">
-        <div class="filter-section-label">Display</div>
+        <div class="filter-section-label">{$_("sidebar.filters.display")}</div>
         <button
           class="filter-toggle"
           class:active={groupMode === "agent"}
@@ -166,7 +167,7 @@
             class="toggle-check"
             class:on={groupMode === "agent"}
           ></span>
-          Group by agent
+          {$_("sidebar.filters.groupByAgent")}
         </button>
         <button
           class="filter-toggle"
@@ -177,13 +178,13 @@
             class="toggle-check"
             class:on={groupMode === "project"}
           ></span>
-          Group by project
+          {$_("sidebar.filters.groupByProject")}
         </button>
       </div>
     {/if}
     {#if showStarred}
       <div class="filter-section">
-        <div class="filter-section-label">Starred</div>
+        <div class="filter-section-label">{$_("sidebar.filters.starred")}</div>
         <button
           class="filter-toggle"
           class:active={starred.filterOnly}
@@ -193,7 +194,7 @@
             class="toggle-check"
             class:on={starred.filterOnly}
           ></span>
-          Starred only
+          {$_("sidebar.filters.starredOnly")}
           {#if starred.count > 0}
             <span class="starred-count">{starred.count}</span>
           {/if}
@@ -201,7 +202,7 @@
       </div>
     {/if}
     <div class="filter-section">
-      <div class="filter-section-label">Activity</div>
+      <div class="filter-section-label">{$_("sidebar.filters.activity")}</div>
       <button
         class="filter-toggle"
         class:active={isRecentlyActiveOn}
@@ -214,12 +215,12 @@
           class="toggle-check"
           class:on={isRecentlyActiveOn}
         ></span>
-        Recently Active
+        {$_("sidebar.filters.recentlyActive")}
       </button>
     </div>
     <div class="filter-section">
       <div class="filter-section-label">
-        Session Type
+        {$_("sidebar.filters.sessionType")}
       </div>
       <button
         class="filter-toggle"
@@ -233,7 +234,7 @@
           class="toggle-check"
           class:on={isHideSingleTurnOn}
         ></span>
-        Hide single-turn
+        {$_("sidebar.filters.hideSingleTurn")}
       </button>
       <button
         class="filter-toggle"
@@ -247,11 +248,11 @@
           class="toggle-check"
           class:on={isIncludeAutomatedOn}
         ></span>
-        Include automated sessions
+        {$_("sidebar.filters.includeAutomated")}
       </button>
     </div>
     <div class="filter-section">
-      <div class="filter-section-label">Project</div>
+      <div class="filter-section-label">{$_("sidebar.filters.project")}</div>
       <button
         class="filter-toggle"
         class:active={isHideUnknownOn}
@@ -264,16 +265,16 @@
           class="toggle-check"
           class:on={isHideUnknownOn}
         ></span>
-        Hide unknown
+        {$_("sidebar.filters.hideUnknown")}
       </button>
     </div>
     <div class="filter-section">
-      <div class="filter-section-label">Agent</div>
+      <div class="filter-section-label">{$_("sidebar.filters.agent")}</div>
       {#if sessions.agents.length > 5}
         <input
           class="agent-search"
           type="text"
-          placeholder="Search agents..."
+          placeholder={$_("sidebar.filters.searchAgents")}
           bind:value={agentSearch}
         />
       {/if}
@@ -292,7 +293,7 @@
               <CheckIcon size="8" strokeWidth="2.4" aria-hidden="true" />
             {/if}
           </span>
-          <span class="agent-select-name">All agents</span>
+          <span class="agent-select-name">{$_("sidebar.filters.allAgents")}</span>
         </button>
         {#each sortedAgents as agent (agent.name)}
           {@const selected =
@@ -325,19 +326,19 @@
           </button>
         {:else}
           <span class="agent-select-empty">
-            {agentSearch ? "No match" : "No agents"}
+            {agentSearch ? $_("sidebar.filters.noMatch") : $_("sidebar.filters.noAgents")}
           </span>
         {/each}
       </div>
     </div>
     {#if sessions.machines.length > 0}
       <div class="filter-section">
-        <div class="filter-section-label">Machine</div>
+        <div class="filter-section-label">{$_("sidebar.filters.machine")}</div>
         {#if sessions.machines.length > 5}
           <input
             class="agent-search"
             type="text"
-            placeholder="Search machines..."
+            placeholder={$_("sidebar.filters.searchMachines")}
             bind:value={machineSearch}
           />
         {/if}
@@ -366,14 +367,14 @@
             </button>
           {:else}
             <span class="agent-select-empty">
-              {machineSearch ? "No match" : "No machines"}
+              {machineSearch ? $_("sidebar.filters.noMatch") : $_("sidebar.filters.noMachines")}
             </span>
           {/each}
         </div>
       </div>
     {/if}
     <div class="filter-section">
-      <div class="filter-section-label">Min Prompts</div>
+      <div class="filter-section-label">{$_("sidebar.filters.minPrompts")}</div>
       <div class="pill-buttons">
         {#each [2, 3, 5, 10] as n}
           <button
@@ -395,7 +396,7 @@
         class="clear-filters-btn"
         onclick={clearFilters}
       >
-        Clear filters
+        {$_("sidebar.filters.clearFilters")}
       </button>
     {/if}
   </div>
