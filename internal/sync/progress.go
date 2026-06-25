@@ -55,11 +55,17 @@ type SyncStats struct {
 	Warnings       []string `json:"warnings,omitempty"`
 	Aborted        bool     `json:"aborted,omitempty"`
 
-	filesOK             int // unexported: file-level success counter
-	filesDiscovered     int // file-based total, excludes DB-backed agents
-	messagesIndexed     int // unexported: progress message counter
-	parserExcludedFiles int // file-level intentional parser exclusions
-	parserExcludedIDs   []string
+	filesOK         int // unexported: file-level success counter
+	filesDiscovered int // file-based total, excludes DB-backed agents
+	// nonContainerDiscovered counts discovered files that are not part of
+	// a self-preserving container store (OpenCode-format storage and its
+	// SQLite virtual paths). The resync empty-discovery guard uses it so a
+	// container store's discovery does not mask the disappearance of plain
+	// file-backed sessions whose directories went empty.
+	nonContainerDiscovered int
+	messagesIndexed        int // unexported: progress message counter
+	parserExcludedFiles    int // file-level intentional parser exclusions
+	parserExcludedIDs      []string
 }
 
 // RecordSkip increments the skipped session counter.
