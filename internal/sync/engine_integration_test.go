@@ -8307,7 +8307,7 @@ func TestIncrementalSync_CodexStoresEffectiveMtime(t *testing.T) {
 		"effective mtime exceeds the plain rollout mtime")
 }
 
-func TestIncrementalSync_CodexHashMatchesConsumedPrefix(t *testing.T) {
+func TestIncrementalSync_CodexAppendFullReparseStoresRawFileSize(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -8349,13 +8349,17 @@ func TestIncrementalSync_CodexHashMatchesConsumedPrefix(t *testing.T) {
 
 	live, err := os.ReadFile(path)
 	require.NoError(t, err, "read live transcript")
-	require.Less(t, *sess.FileSize, int64(len(live)),
-		"partial trailing JSON should remain outside the consumed prefix")
-	prefix := live[:*sess.FileSize]
-	sum := sha256.Sum256(prefix)
+	// Codex does not advertise incremental append, so re-syncing the appended
+	// transcript is a full re-parse that stores the raw file size and hash
+	// (including the ignored partial trailing line). The parsed-snapshot vs
+	// partial-tail distinction is enforced at parse-diff time via
+	// CodexTranscriptConsumedSize, not in the stored fingerprint.
+	require.Equal(t, int64(len(live)), *sess.FileSize,
+		"full Codex re-parse stores the raw file size")
+	sum := sha256.Sum256(live)
 	wantHash := fmt.Sprintf("%x", sum[:])
 	assert.Equal(t, wantHash, *sess.FileHash,
-		"incremental Codex hash must match the consumed file_size prefix")
+		"stored Codex hash matches the whole-file fingerprint")
 }
 
 func TestIncrementalSync_CodexExecAppendRetainsEvents(t *testing.T) {
