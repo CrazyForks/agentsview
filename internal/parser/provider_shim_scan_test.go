@@ -56,8 +56,6 @@ var pendingShimProviderFiles = map[string]bool{
 	"db_backed_provider.go":            true,
 	"gemini_provider.go":               true,
 	"hermes_provider.go":               true,
-	"kiro_ide_provider.go":             true,
-	"kiro_provider.go":                 true,
 	"opencode_provider.go":             true,
 	"positron_provider.go":             true,
 	"vibe_provider.go":                 true,
