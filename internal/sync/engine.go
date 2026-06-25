@@ -956,23 +956,6 @@ func (e *Engine) classifyOnePath(
 	// shapes, so the legacy block was removed when Claude was folded
 	// onto its provider.
 
-	// Cowork: <coworkDir>/<orgId>/<workspaceId>/local_<uuid>/.claude/
-	//   projects/<enc>/<cliSessionId>.jsonl (transcript), or the sibling
-	//   local_<uuid>.json metadata file (resolves to its transcript).
-	for _, coworkDir := range e.agentDirs[parser.AgentCowork] {
-		if coworkDir == "" {
-			continue
-		}
-		if transcript, ok := parser.ClassifyCoworkPath(
-			coworkDir, path,
-		); ok {
-			return parser.DiscoveredFile{
-				Path:  transcript,
-				Agent: parser.AgentCowork,
-			}, true
-		}
-	}
-
 	// Codex: either <codexDir>/<year>/<month>/<day>/<file>.jsonl
 	// or <codexDir>/<file>.jsonl for archived sessions.
 	for _, codexDir := range e.agentDirs[parser.AgentCodex] {
@@ -4120,8 +4103,6 @@ func (e *Engine) processFile(
 
 	var res processResult
 	switch file.Agent {
-	case parser.AgentCowork:
-		res = e.processCowork(file, info)
 	case parser.AgentCodex:
 		res = e.processCodex(file, info)
 	case parser.AgentCopilot:
@@ -4235,6 +4216,12 @@ func (e *Engine) processProviderFile(
 		return processResult{
 			skip:  true,
 			mtime: mtime,
+		}, true
+	}
+	if freshMtime, fresh := e.providerCoworkSourceFresh(source, file); fresh {
+		return processResult{
+			skip:  true,
+			mtime: freshMtime,
 		}, true
 	}
 
@@ -4838,50 +4825,6 @@ func (f fakeSnapshotInfo) ModTime() time.Time {
 func (f fakeSnapshotInfo) IsDir() bool { return false }
 func (f fakeSnapshotInfo) Sys() any    { return nil }
 
-// processCowork parses a Claude Desktop "cowork" (local agent mode)
-// session. The transcript is a standard Claude Code JSONL file nested
-// inside the cowork session directory, so the work is delegated to the
-// Claude parser and rewritten into the cowork namespace by
-// parser.ParseCoworkSession. Cowork session IDs are "cowork:"-prefixed, so
-// the skip check keys off file_path rather than the bare filename stem.
-func (e *Engine) processCowork(
-	file parser.DiscoveredFile, info os.FileInfo,
-) processResult {
-
-	// The session title lives in the sibling metadata file, so a rename
-	// changes only that file. Skip on the composite (transcript+metadata)
-	// mtime so renames are re-parsed instead of skipped as unchanged.
-	compositeMtime := parser.CoworkSessionMtime(
-		file.Path, info.ModTime().UnixNano(),
-	)
-	fi := fakeSnapshotInfo{fSize: info.Size(), fMtime: compositeMtime}
-	if e.shouldSkipByPath(file.Path, fi) {
-		return processResult{skip: true}
-	}
-
-	results, excludedIDs, err := parser.ParseCoworkSession(
-		file.Path, e.machine,
-	)
-	if err != nil {
-		return processResult{err: err}
-	}
-
-	inode, device := getFileIdentity(info)
-	hash, hashErr := ComputeFileHash(file.Path)
-	for i := range results {
-		results[i].Session.File.Inode = inode
-		results[i].Session.File.Device = device
-		if hashErr == nil {
-			results[i].Session.File.Hash = hash
-		}
-	}
-
-	return processResult{
-		results:            results,
-		excludedSessionIDs: excludedIDs,
-	}
-}
-
 // providerSingleSessionFresh reports whether a single-session JSONL
 // provider's source (Claude) maps to a stored session that is already
 // up to date: the source size and mtime match what is stored, the row
@@ -4940,6 +4883,39 @@ func (e *Engine) providerSingleSessionFresh(
 	return info.ModTime().UnixNano(), sess != nil &&
 		sess.Project != "" &&
 		!parser.NeedsProjectReparse(sess.Project)
+}
+
+func (e *Engine) providerCoworkSourceFresh(
+	source parser.SourceRef,
+	file parser.DiscoveredFile,
+) (int64, bool) {
+	if e.forceParse || file.ForceParse || file.Agent != parser.AgentCowork {
+		return 0, false
+	}
+	path := providerDiscoveredPath(source)
+	if path == "" {
+		return 0, false
+	}
+	lookupPath := path
+	if e.pathRewriter != nil {
+		lookupPath = e.pathRewriter(path)
+	}
+	info, err := os.Stat(lookupPath)
+	if err != nil {
+		info, err = os.Stat(path)
+		if err != nil {
+			return 0, false
+		}
+	}
+	mtime := parser.CoworkSessionMtime(path, info.ModTime().UnixNano())
+	effectiveInfo := fakeSnapshotInfo{
+		fSize:  info.Size(),
+		fMtime: mtime,
+	}
+	if !e.shouldSkipByPath(path, effectiveInfo) {
+		return 0, false
+	}
+	return mtime, true
 }
 
 // stampProviderFileIdentity copies the source file's inode and device onto
