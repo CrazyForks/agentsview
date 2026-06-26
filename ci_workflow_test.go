@@ -39,8 +39,9 @@ type githubWorkflowStep struct {
 // TestCIRunsOnAllPullRequestsWhileDesktopBuildsTargetMain guards the trigger
 // split: the test/lint suite (ci.yml) must run on every pull request -- including
 // stacked PRs that target another feature branch rather than main -- while the
-// expensive desktop/tauri bundle builds (desktop-artifacts.yml) must only run for
-// pull requests targeting main.
+// expensive desktop/tauri bundle builds (desktop-artifacts.yml) must only run on
+// the main branch (push and PRs targeting main) and only when desktop-relevant
+// files change.
 func TestCIRunsOnAllPullRequestsWhileDesktopBuildsTargetMain(t *testing.T) {
 	ciNode, ok := workflowTrigger(t, ".github/workflows/ci.yml", "pull_request")
 	require.True(t, ok, "ci.yml must trigger on pull_request")
@@ -52,14 +53,20 @@ func TestCIRunsOnAllPullRequestsWhileDesktopBuildsTargetMain(t *testing.T) {
 		"ci.yml pull_request must not restrict by base branch so stacked "+
 			"PRs targeting another feature branch still run the suite")
 
-	desktopNode, ok := workflowTrigger(
-		t, ".github/workflows/desktop-artifacts.yml", "pull_request",
-	)
-	require.True(t, ok, "desktop-artifacts.yml must trigger on pull_request")
-	var desktopPR githubWorkflowTrigger
-	require.NoError(t, desktopNode.Decode(&desktopPR))
-	assert.Equal(t, []string{"main"}, desktopPR.Branches,
-		"desktop bundle builds must only run for PRs targeting main")
+	// Both the PR-to-main and push-to-main desktop triggers must pin main and a
+	// path filter, so bundle builds run only on the main branch and only when
+	// desktop-relevant files change.
+	const desktopWorkflow = ".github/workflows/desktop-artifacts.yml"
+	for _, trigger := range []string{"pull_request", "push"} {
+		node, ok := workflowTrigger(t, desktopWorkflow, trigger)
+		require.True(t, ok, "desktop-artifacts.yml must trigger on %s", trigger)
+		var cfg githubWorkflowTrigger
+		require.NoError(t, node.Decode(&cfg))
+		assert.Equal(t, []string{"main"}, cfg.Branches,
+			"desktop %s must target main only", trigger)
+		assert.Contains(t, cfg.Paths, "desktop/**",
+			"desktop %s must filter on desktop-relevant paths", trigger)
+	}
 }
 
 // workflowTrigger returns the raw node for the named on: trigger in a workflow
