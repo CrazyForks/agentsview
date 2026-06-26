@@ -2,7 +2,11 @@ name: Desktop Artifacts
 
 on:
   workflow_dispatch:
+  # Only build the expensive desktop/tauri bundles for pull requests targeting
+  # main. Stacked PRs that target another feature branch run the test suite via
+  # ci.yml but skip these multi-platform bundle builds until they reach main.
   pull_request:
+    branches: [main]
     paths:
       - 'desktop/**'
       - 'frontend/**'

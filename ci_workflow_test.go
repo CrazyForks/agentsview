@@ -13,6 +13,19 @@ type githubWorkflow struct {
 	Jobs map[string]githubWorkflowJob `yaml:"jobs"`
 }
 
+// githubWorkflowTriggers decodes only the on: block. Each trigger value is kept
+// as a raw node because trigger shapes vary across workflows (mapping, null, or
+// a sequence such as schedule's cron list); callers decode the specific trigger
+// they care about.
+type githubWorkflowTriggers struct {
+	On map[string]yaml.Node `yaml:"on"`
+}
+
+type githubWorkflowTrigger struct {
+	Branches []string `yaml:"branches"`
+	Paths    []string `yaml:"paths"`
+}
+
 type githubWorkflowJob struct {
 	Steps []githubWorkflowStep `yaml:"steps"`
 }
@@ -21,6 +34,46 @@ type githubWorkflowStep struct {
 	Name string `yaml:"name"`
 	Run  string `yaml:"run"`
 	Uses string `yaml:"uses"`
+}
+
+// TestCIRunsOnAllPullRequestsWhileDesktopBuildsTargetMain guards the trigger
+// split: the test/lint suite (ci.yml) must run on every pull request -- including
+// stacked PRs that target another feature branch rather than main -- while the
+// expensive desktop/tauri bundle builds (desktop-artifacts.yml) must only run for
+// pull requests targeting main.
+func TestCIRunsOnAllPullRequestsWhileDesktopBuildsTargetMain(t *testing.T) {
+	ciNode, ok := workflowTrigger(t, ".github/workflows/ci.yml", "pull_request")
+	require.True(t, ok, "ci.yml must trigger on pull_request")
+	// ci.yml uses `pull_request:` with no value (a null node), so the base
+	// branches list stays empty and stacked PRs against any base run the suite.
+	var ciPR githubWorkflowTrigger
+	require.NoError(t, ciNode.Decode(&ciPR))
+	assert.Empty(t, ciPR.Branches,
+		"ci.yml pull_request must not restrict by base branch so stacked "+
+			"PRs targeting another feature branch still run the suite")
+
+	desktopNode, ok := workflowTrigger(
+		t, ".github/workflows/desktop-artifacts.yml", "pull_request",
+	)
+	require.True(t, ok, "desktop-artifacts.yml must trigger on pull_request")
+	var desktopPR githubWorkflowTrigger
+	require.NoError(t, desktopNode.Decode(&desktopPR))
+	assert.Equal(t, []string{"main"}, desktopPR.Branches,
+		"desktop bundle builds must only run for PRs targeting main")
+}
+
+// workflowTrigger returns the raw node for the named on: trigger in a workflow
+// file, reporting whether that trigger key is present.
+func workflowTrigger(
+	t *testing.T, path, trigger string,
+) (yaml.Node, bool) {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var triggers githubWorkflowTriggers
+	require.NoError(t, yaml.Unmarshal(contents, &triggers))
+	node, ok := triggers.On[trigger]
+	return node, ok
 }
 
 func TestWindowsDesktopUpdateTestsRetryCargoNetworkFailures(t *testing.T) {

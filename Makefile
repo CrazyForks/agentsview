@@ -338,7 +338,11 @@ nilaway: pricing-snapshot ensure-embed-dir nilaway-golangci-build
 	root=$$(pwd); \
 	dirs=$$(go list -f '{{.Dir}}' ./...); \
 	for dir in $$dirs; do \
-		pkg="./$${dir#$$root/}"; \
+		if [ "$$dir" = "$$root" ]; then \
+			pkg="."; \
+		else \
+			pkg="./$${dir#$$root/}"; \
+		fi; \
 		echo "$(CUSTOM_GCL) run --config .golangci.nilaway.yml $$pkg"; \
 		GOMAXPROCS=$${GOMAXPROCS:-1} GOGC=$${GOGC:-10} GOMEMLIMIT=$${GOMEMLIMIT:-512MiB} \
 			$(CUSTOM_GCL) run --config .golangci.nilaway.yml "$$pkg"; \
