@@ -111,7 +111,7 @@ func runServe(cfg config.Config, opts serveOptions) {
 		}
 	}
 
-	cont, releaseForegroundReplacement, err := prepareForegroundServeDaemon(
+	cont, releaseForegroundServeLaunch, err := prepareForegroundServeDaemon(
 		&cfg,
 		serveReplacementOptions{
 			Replace:        opts.ReplaceDaemon,
@@ -124,7 +124,7 @@ func runServe(cfg config.Config, opts serveOptions) {
 	if !cont {
 		return
 	}
-	defer releaseForegroundReplacement()
+	defer releaseForegroundServeLaunch()
 
 	// Acquire the daemon start lock immediately after config setup,
 	// before opening the DB, so token-use never sees a window
@@ -281,7 +281,7 @@ func runServe(cfg config.Config, opts serveOptions) {
 		runtimeRecordDataDir = rt.Cfg.DataDir
 		UnmarkDaemonStarting(rt.Cfg.DataDir)
 	}
-	releaseForegroundReplacement()
+	releaseForegroundServeLaunch()
 	if idleTracker != nil {
 		idleTracker.Touch()
 		go idleTracker.Run(ctx)
@@ -513,7 +513,7 @@ func rejectLiveWritableDaemonBeforeDirectWrite(cfg config.Config) error {
 		)
 	}
 	if isBackgroundLaunchActive(dataDir) &&
-		!ownsForegroundReplacementLaunchLock(dataDir) &&
+		!ownsForegroundServeLaunchLock(dataDir) &&
 		!runningAsBackgroundChild() {
 		return fmt.Errorf(
 			"local daemon launch is in progress and owns the SQLite archive; " +
@@ -1035,9 +1035,14 @@ func collectProviderWatchRoots(
 	added := false
 	var addedRoots []watchRoot
 	var missingRoots []string
+	var unwatchedDirs []string
 	for _, providerRoot := range plan.Roots {
 		root := filepath.Clean(providerRoot.Path)
 		if root == "" || root == "." {
+			continue
+		}
+		if providerRoot.Recursive && isSymlinkPath(root) {
+			unwatchedDirs = appendUniqueString(unwatchedDirs, dir)
 			continue
 		}
 		if _, err := os.Stat(root); err == nil {
@@ -1052,6 +1057,9 @@ func collectProviderWatchRoots(
 		missingRoots = append(missingRoots, root)
 	}
 	if !added {
+		if len(unwatchedDirs) > 0 {
+			return true, unwatchedDirs
+		}
 		return false, nil
 	}
 	// A watch target that does not exist yet but lives under an already-watched
@@ -1061,10 +1069,25 @@ func collectProviderWatchRoots(
 	// missing nested provider root.
 	for _, missing := range missingRoots {
 		if !pathCoveredByAnyWatchRootCreation(missing, addedRoots) {
-			return true, []string{dir}
+			unwatchedDirs = appendUniqueString(unwatchedDirs, dir)
 		}
 	}
-	return true, nil
+	return true, unwatchedDirs
+}
+
+func isSymlinkPath(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || info == nil {
+		return false
+	}
+	return info.Mode()&os.ModeSymlink != 0
+}
+
+func appendUniqueString(values []string, value string) []string {
+	if slices.Contains(values, value) {
+		return values
+	}
+	return append(values, value)
 }
 
 // pathCoveredByAnyWatchRootCreation reports whether path is covered by an
