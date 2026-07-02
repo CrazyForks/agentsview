@@ -29,7 +29,7 @@
   import SessionFilterControl from "../filters/SessionFilterControl.svelte";
   import SessionActiveFilters from "../filters/SessionActiveFilters.svelte";
   import FilterDropdown from "./FilterDropdown.svelte";
-  import RefreshControl from "../shared/RefreshControl.svelte";
+  import { RefreshControl } from "@kenn-io/kit-ui";
   import {
     yokedDates,
     panelDateState,
